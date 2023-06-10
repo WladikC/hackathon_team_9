@@ -18,7 +18,9 @@ openai.api_key = os.environ.get('OpenAPI_Key')
 
 MAXIMUM_PROMPT_LENGTH = 2000
 START_CAPITAL = 100000
-BUY_PERCENTAGE = 5
+BUY_BIG_PERCENTAGE = 10
+BUY_SMALL_PERCENTAGE = 5
+SELL_SMALL_PERCENTAGE = 20
 TRADING_FEES_BIPS = 10
 BID_ASK_SPREAD_BIPS = 10
 
@@ -110,7 +112,7 @@ class AIPortfolioManager:
             self.news = self.get_news_for_coin(stories=stories)
 
             symbol = PORTFOLIO[self.coin]
-            price_data = get_currency_price_data(timestamp=datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ"), symbol=symbol)
+            price_data = self.get_currency_price_data(timestamp=datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ"), symbol=symbol)
 
             if price_data.get("close_price") is None:
                 print("No price available.")
@@ -163,16 +165,16 @@ class AIPortfolioManager:
             buy_sell = signals["verdict"]
             coin = signals["Coin"]
 
-            if buy_sell == "SELL":
+            if buy_sell == "Sell":
                 if self.positions[coin] > 0:
                     sell_price = self.prices[coin] * (1 - (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS/2)/10000)
-                    self.positions['Cash'] += self.positions[coin] * sell_price
+                    self.positions['Cash'] += round(self.positions[coin] * sell_price, 2)
                     self.positions[coin] = 0
 
-            elif buy_sell == "BUY":
+            elif buy_sell == "Buy":
                 buy_price = self.prices[coin] * (1 + (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS/2)/10000)
-                self.positions['Cash'] -= BUY_PERCENTAGE * self.positions['Cash'] * buy_price
-                self.positions[coin] += BUY_PERCENTAGE * self.positions['Cash'] / buy_price
+                self.positions['Cash'] -= round(BUY_SMALL_PERCENTAGE/100 * self.positions['Cash'], 2)
+                self.positions[coin] += round(BUY_SMALL_PERCENTAGE/100 * self.positions['Cash'] / buy_price, 5)
 
     def calculate_portfolio_value(self):
         coin_value = 0
@@ -196,6 +198,41 @@ class AIPortfolioManager:
 
         return buy_or_sell
 
+    @staticmethod
+    def get_currency_price_data(timestamp: datetime, symbol: str) -> dict:
+        """
+        :param timestamp: time for which the price should be retrieved as datetime object
+        :param symbol: symbol for which the price should be retrieved as string
+        :return: dictionary which includes open price, high price, low price, close price
+                 and volume for the given symbol and the last 24h period before the given timestamp.
+        """
+
+        url = "https://api.binance.com/api/v3/klines"
+
+        params = {
+            "symbol": symbol,
+            "interval": "1d",
+            "startTime": int(datetime.timestamp(timestamp) * 1000),
+            "limit": 1,
+        }
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+
+        price_data = {}
+
+        if len(data) > 0:
+            price_data['open_price'] = float(data[0][1])
+            price_data['high_price'] = float(data[0][2])
+            price_data['low_price'] = float(data[0][3])
+            price_data['close_price'] = float(data[0][4])
+            price_data['volume'] = float(data[0][5]) * float(data[0][4])
+
+            return price_data
+
+        return price_data
+
 
 def get_new_time_range(news_feed_start_time: datetime, news_feed_end_time: datetime, minute_interval: int):
     news_feed_start_time += timedelta(minutes=minute_interval)
@@ -205,41 +242,6 @@ def get_new_time_range(news_feed_start_time: datetime, news_feed_end_time: datet
     news_feed_end_time = news_feed_end_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
     return news_feed_start_time, news_feed_end_time
-
-
-def get_currency_price_data(timestamp: datetime, symbol: str) -> dict:
-    """
-    :param timestamp: time for which the price should be retrieved as datetime object
-    :param symbol: symbol for which the price should be retrieved as string
-    :return: dictionary which includes open price, high price, low price, close price
-             and volume for the given symbol and the last 24h period before the given timestamp.
-    """
-
-    url = "https://api.binance.com/api/v3/klines"
-
-    params = {
-        "symbol": symbol,
-        "interval": "1d",
-        "startTime": int(datetime.timestamp(timestamp) * 1000),
-        "limit": 1,
-    }
-
-    response = requests.get(url, params=params)
-    response.raise_for_status()
-    data = response.json()
-
-    price_data = {}
-
-    if len(data) > 0:
-        price_data['open_price'] = float(data[0][1])
-        price_data['high_price'] = float(data[0][2])
-        price_data['low_price'] = float(data[0][3])
-        price_data['close_price'] = float(data[0][4])
-        price_data['volume'] = float(data[0][5]) * float(data[0][4])
-
-        return price_data
-
-    return price_data
 
 
 # Route for the index page
