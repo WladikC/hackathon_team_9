@@ -9,11 +9,11 @@ def generate_prompt(news: str, coin: str, price_data: dict) -> str:
                     the answer to question 1 and question 2 respectively. Give me only the json and nothing else. 
                     
                  The financial data are the following:
-                 price 24 hours ago in USD: {price_data["open_price"]}
+                 price 1 hour ago in USD: {price_data["open_price"]}
                  price now in USD: {price_data["close_price"]}
-                 highest price in the last 24 hours in USD: {price_data["high_price"]}
-                 lowest price in the last 24 hours in USD: {price_data["low_price"]}
-                 traded volume in the last 24 hours in USD: {price_data["volume"]}
+                 highest price in the last hour in USD: {price_data["high_price"]}
+                 lowest price in the last hour in USD: {price_data["low_price"]}
+                 traded volume in the last hour in USD: {price_data["volume"]}
                  
                  The news article is:
                 {news}

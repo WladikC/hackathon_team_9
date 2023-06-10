@@ -253,7 +253,7 @@ class AIPortfolioManager:
 
         params = {
             "symbol": symbol,
-            "interval": "1d",
+            "interval": "1h",
             "startTime": int(datetime.timestamp(timestamp) * 1000),
             "limit": 1,
         }
