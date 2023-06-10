@@ -12,9 +12,9 @@ from aylien_news_api.rest import ApiException
 
 
 app = Flask(__name__)
-app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25}
+app.config["SOCK_SERVER_OPTIONS"] = {"ping_interval": 25}
 sock = Sock(app)
-openai.api_key = os.environ.get('OpenAPI_Key')
+openai.api_key = os.environ.get("OpenAPI_Key")
 
 MAXIMUM_PROMPT_LENGTH = 2000
 START_CAPITAL = 100000
@@ -34,7 +34,7 @@ PORTFOLIO = {
     "Polygon": "MATICUSDT",
     "Litecoin": "LTCUSDT",
     "Uniswap": "UNIUSDT",
-    "Avalanche": "AVAXUSDT"
+    "Avalanche": "AVAXUSDT",
 }
 
 
@@ -44,7 +44,7 @@ class AIPortfolioManager:
         self.news = None
         self.prices = {}
         self.positions = {coin: 0 for coin in PORTFOLIO.keys()}
-        self.positions['Cash'] = START_CAPITAL
+        self.positions["Cash"] = START_CAPITAL
         self.portfolio_value = START_CAPITAL
 
     @staticmethod
@@ -55,10 +55,16 @@ class AIPortfolioManager:
         :return: news article summaries with publish times grouped by coins.
         """
         configuration = aylien_news_api.Configuration()
-        configuration.api_key['X-AYLIEN-NewsAPI-Application-ID'] = os.getenv("AylienAPI_ID")
-        configuration.api_key['X-AYLIEN-NewsAPI-Application-Key'] = os.getenv("AylienAPI_Key")
+        configuration.api_key["X-AYLIEN-NewsAPI-Application-ID"] = os.getenv(
+            "AylienAPI_ID"
+        )
+        configuration.api_key["X-AYLIEN-NewsAPI-Application-Key"] = os.getenv(
+            "AylienAPI_Key"
+        )
         configuration.host = "https://api.aylien.com/news"
-        api_instance = aylien_news_api.DefaultApi(aylien_news_api.ApiClient(configuration))
+        api_instance = aylien_news_api.DefaultApi(
+            aylien_news_api.ApiClient(configuration)
+        )
 
         api_response = {}
         stories = {coin: {} for coin in PORTFOLIO.keys()}
@@ -66,9 +72,9 @@ class AIPortfolioManager:
         for coin in PORTFOLIO.keys():
             print(f"fetching news for {coin}")
             opts = {
-                'published_at_start': start_time,
-                'published_at_end': end_time,
-                'title': coin,
+                "published_at_start": start_time,
+                "published_at_end": end_time,
+                "title": coin,
             }
             try:
                 api_response[coin] = api_instance.list_stories(**opts)
@@ -76,11 +82,17 @@ class AIPortfolioManager:
                 print("Exception when calling DefaultApi->list_stories: %s\n" % e)
 
             for i in range(len(api_response[coin].stories)):
-                article_summary = ''
-                publish_time = api_response[coin].stories[i].published_at.strftime("%Y-%m-%d %H:%M:%S")
+                article_summary = ""
+                publish_time = (
+                    api_response[coin]
+                    .stories[i]
+                    .published_at.strftime("%Y-%m-%d %H:%M:%S")
+                )
 
                 for j in range(len(api_response[coin].stories[i].summary.sentences)):
-                    article_summary += api_response[coin].stories[i].summary.sentences[j]
+                    article_summary += (
+                        api_response[coin].stories[i].summary.sentences[j]
+                    )
 
                 stories[coin][publish_time] = article_summary
 
@@ -89,7 +101,7 @@ class AIPortfolioManager:
     def get_news_for_coin(self, stories: dict) -> str:
         if len(stories[self.coin]) > 0:
             if len(stories[self.coin]) > 1:
-                news = ''
+                news = ""
                 for i in range(len(stories[self.coin])):
                     timestamp = list(stories[self.coin].keys())[i]
                     news += stories[self.coin][timestamp]
@@ -97,22 +109,31 @@ class AIPortfolioManager:
                 timestamp = list(stories[self.coin].keys())[0]
                 news = stories[self.coin][timestamp]
         else:
-            news = ''
-            print('No news found.')
+            news = ""
+            print("No news found.")
 
         return news
 
-    def generate_response(self, news_feed_start_time: str, news_feed_end_time: str) -> (list, float, float):
-        stories = self.fetch_news(start_time=news_feed_start_time, end_time=news_feed_end_time)
+    def generate_response(
+        self, news_feed_start_time: str, news_feed_end_time: str
+    ) -> (list, float, float):
+        stories = self.fetch_news(
+            start_time=news_feed_start_time, end_time=news_feed_end_time
+        )
 
         buy_or_sell_list = []
         for coin in PORTFOLIO.keys():
-            print(f'Generating responses for {coin} news for date {news_feed_start_time}')
+            print(
+                f"Generating responses for {coin} news for date {news_feed_start_time}"
+            )
             self.coin = coin
             self.news = self.get_news_for_coin(stories=stories)
 
             symbol = PORTFOLIO[self.coin]
-            price_data = self.get_currency_price_data(timestamp=datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ"), symbol=symbol)
+            price_data = self.get_currency_price_data(
+                timestamp=datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ"),
+                symbol=symbol,
+            )
 
             if price_data.get("close_price") is None:
                 print("No price available.")
@@ -120,29 +141,36 @@ class AIPortfolioManager:
 
             self.prices[self.coin] = price_data.get("close_price")
 
-            if self.news == '':
+            if self.news == "":
                 continue
 
             if len(self.news) > MAXIMUM_PROMPT_LENGTH:
                 self.news = self.news[:MAXIMUM_PROMPT_LENGTH]
 
-            prompt = generate_prompt(news=self.news, coin=self.coin)
+            prompt = generate_prompt(news=self.news, coin=self.coin, price_data=price_data)
 
             # Call the OpenAI API to generate a response
             response = openai.Completion.create(
-                engine="text-davinci-003",
-                prompt=prompt,
-                max_tokens=1000
+                engine="text-davinci-003", prompt=prompt, max_tokens=1000
             )
 
             # Get the generated response from the API
             try:
-                generated_response = '{' + response.choices[0].text.strip().replace("\n", "").replace(" ", "").split('{')[1]
+                generated_response = (
+                    "{"
+                    + response.choices[0]
+                    .text.strip()
+                    .replace("\n", "")
+                    .replace(" ", "")
+                    .split("{")[1]
+                )
                 response = json.loads(generated_response)
 
             except Exception as e:
-                print(f'Formatting of response from ChatGPT not okay.'
-                      f'Response: {response}')
+                print(
+                    f"Formatting of response from ChatGPT not okay."
+                    f"Response: {response}"
+                )
                 continue
 
             # Decide based on the response if to buy or sell a coin or do nothing.
@@ -151,14 +179,18 @@ class AIPortfolioManager:
                 buy_or_sell_list.append(buy_or_sell)
 
         # In order to do the sells first.
-        buy_or_sell_list = sorted(buy_or_sell_list, key=lambda x: x["verdict"], reverse=True)
+        buy_or_sell_list = sorted(
+            buy_or_sell_list, key=lambda x: x["verdict"], reverse=True
+        )
 
-        self.do_transactions_and_calculate_new_positions(buy_or_sell_list=buy_or_sell_list)
+        self.do_transactions_and_calculate_new_positions(
+            buy_or_sell_list=buy_or_sell_list
+        )
         self.calculate_portfolio_value()
 
         buy_or_sell_list = [json.dumps(x) for x in buy_or_sell_list]
 
-        return buy_or_sell_list, self.portfolio_value, self.positions['Cash']
+        return buy_or_sell_list, self.portfolio_value, self.positions["Cash"]
 
     def do_transactions_and_calculate_new_positions(self, buy_or_sell_list: list):
         for signals in buy_or_sell_list:
@@ -167,31 +199,41 @@ class AIPortfolioManager:
 
             if buy_sell == "Sell":
                 if self.positions[coin] > 0:
-                    sell_price = self.prices[coin] * (1 - (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS/2)/10000)
-                    self.positions['Cash'] += round(self.positions[coin] * sell_price, 2)
+                    sell_price = self.prices[coin] * (
+                        1 - (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
+                    )
+                    self.positions["Cash"] += round(
+                        self.positions[coin] * sell_price, 2
+                    )
                     self.positions[coin] = 0
 
             elif buy_sell == "Buy":
-                buy_price = self.prices[coin] * (1 + (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS/2)/10000)
-                self.positions['Cash'] -= round(BUY_SMALL_PERCENTAGE/100 * self.positions['Cash'], 2)
-                self.positions[coin] += round(BUY_SMALL_PERCENTAGE/100 * self.positions['Cash'] / buy_price, 5)
+                buy_price = self.prices[coin] * (
+                    1 + (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
+                )
+                self.positions["Cash"] -= round(
+                    BUY_SMALL_PERCENTAGE / 100 * self.positions["Cash"], 2
+                )
+                self.positions[coin] += round(
+                    BUY_SMALL_PERCENTAGE / 100 * self.positions["Cash"] / buy_price, 5
+                )
 
     def calculate_portfolio_value(self):
         coin_value = 0
         for coin in PORTFOLIO.keys():
             coin_value += self.positions[coin] * self.prices[coin]
 
-        self.portfolio_value = self.positions['Cash'] + coin_value
+        self.portfolio_value = self.positions["Cash"] + coin_value
         print(f"Portfolio value: {self.portfolio_value}")
 
     def make_buy_or_sell_decision(self, message: str):
-        print('Make buy or sell decision.')
+        print("Make buy or sell decision.")
         message = json.loads(message)
         message = {key.lower(): value for key, value in message.items()}
 
-        if 'positive' in message["pos_neg"].lower():
+        if "positive" in message["pos_neg"].lower():
             buy_or_sell = {"verdict": "Buy", "Coin": self.coin, "type": "coin"}
-        elif 'negative' in message["pos_neg"].lower():
+        elif "negative" in message["pos_neg"].lower():
             buy_or_sell = {"verdict": "Sell", "Coin": self.coin, "type": "coin"}
         else:
             buy_or_sell = {"verdict": "Do nothing", "Coin": self.coin, "type": "coin"}
@@ -204,7 +246,7 @@ class AIPortfolioManager:
         :param timestamp: time for which the price should be retrieved as datetime object
         :param symbol: symbol for which the price should be retrieved as string
         :return: dictionary which includes open price, high price, low price, close price
-                 and volume for the given symbol and the last 24h period before the given timestamp.
+                 and volume for the last 24h period for the given symbol and the given timestamp.
         """
 
         url = "https://api.binance.com/api/v3/klines"
@@ -223,18 +265,20 @@ class AIPortfolioManager:
         price_data = {}
 
         if len(data) > 0:
-            price_data['open_price'] = float(data[0][1])
-            price_data['high_price'] = float(data[0][2])
-            price_data['low_price'] = float(data[0][3])
-            price_data['close_price'] = float(data[0][4])
-            price_data['volume'] = float(data[0][5]) * float(data[0][4])
+            price_data["open_price"] = float(data[0][1])
+            price_data["high_price"] = float(data[0][2])
+            price_data["low_price"] = float(data[0][3])
+            price_data["close_price"] = float(data[0][4])
+            price_data["volume"] = float(data[0][5]) * float(data[0][4])
 
             return price_data
 
         return price_data
 
 
-def get_new_time_range(news_feed_start_time: datetime, news_feed_end_time: datetime, minute_interval: int):
+def get_new_time_range(
+    news_feed_start_time: datetime, news_feed_end_time: datetime, minute_interval: int
+):
     news_feed_start_time += timedelta(minutes=minute_interval)
     news_feed_start_time = news_feed_start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -245,27 +289,42 @@ def get_new_time_range(news_feed_start_time: datetime, news_feed_end_time: datet
 
 
 # Route for the index page
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@sock.route('/feed')
+@sock.route("/feed")
 def feed(ws):
     start_time = os.getenv("START_TIME")
     minute_interval = int(os.getenv("MINUTE_INTERVAL"))
 
     ai_portfolio_manager = AIPortfolioManager()
 
-    news_feed_start_time = datetime.strptime(start_time, "%Y-%m-%d") - timedelta(minutes=minute_interval)
+    news_feed_start_time = datetime.strptime(start_time, "%Y-%m-%d") - timedelta(
+        minutes=minute_interval
+    )
     news_feed_end_time = datetime.strptime(start_time, "%Y-%m-%d")
 
     while True:
-        news_feed_start_time, news_feed_end_time = get_new_time_range(news_feed_start_time=news_feed_start_time, news_feed_end_time=news_feed_end_time, minute_interval=minute_interval)
+        news_feed_start_time, news_feed_end_time = get_new_time_range(
+            news_feed_start_time=news_feed_start_time,
+            news_feed_end_time=news_feed_end_time,
+            minute_interval=minute_interval,
+        )
 
-        message, portfolio_value, outstanding_cash = ai_portfolio_manager.generate_response(news_feed_start_time=news_feed_start_time, news_feed_end_time=news_feed_end_time)
+        (
+            message,
+            portfolio_value,
+            outstanding_cash,
+        ) = ai_portfolio_manager.generate_response(
+            news_feed_start_time=news_feed_start_time,
+            news_feed_end_time=news_feed_end_time,
+        )
 
-        news_feed_start_time = datetime.strptime(news_feed_start_time, "%Y-%m-%dT%H:%M:%SZ")
+        news_feed_start_time = datetime.strptime(
+            news_feed_start_time, "%Y-%m-%dT%H:%M:%SZ"
+        )
         news_feed_end_time = datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ")
 
         for msg in message:
@@ -274,4 +333,4 @@ def feed(ws):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8000)
+    app.run(host="0.0.0.0", port=8000)
