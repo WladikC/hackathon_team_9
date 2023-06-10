@@ -270,6 +270,10 @@ def feed(ws):
 
         for msg in message:
             ws.send(msg)
+        portfolio = json.dumps({'type':"numb","portfolio":portfolio_value})
+        cash=json.dumps({'type':"numb","cash":outstanding_cash})
+        ws.send(cash)
+        ws.send(portfolio)
         time.sleep(5)
 
 

@@ -4,19 +4,44 @@
     <title>PortFolioperformance</title>
   </head>
   <body>
-    <h1>Coins</h1>
+    <h2>orders</h2>
     <div id="log"></div>
+    <br>
+    <div id="portfolioperformance" style="float: right; width: 200px; height: 100px;" ></div>
+    <br>
+    <div id="outstandingcash"></div>
     <br>
     <script>
       const log = (text, color) => {
         document.getElementById('log').innerHTML += `<span style="color: ${color}">${text}</span><br>`;
       };
+      const log2 = (text) => {
+        document.getElementById('portfolioperformance').innerHTML = `<span style="color: blue">${text}</span><br>`;
+      };
+
+      const log3 = (text) => {
+        document.getElementById('outstandingcash').innerHTML = `<span style="color: blue">${text}</span><br>`;
+      };
+
 
       const socket = new WebSocket('ws://' + location.host + '/feed ');
       socket.addEventListener('message', ev => {
         message = JSON.parse(ev.data)
-        if (message.verdict == 'Buy'){log(message.Coin + "  " + message.verdict, 'green');}
-        else {log(message.Coin + "  " + message.verdict, 'red');}
+        if (message.type == 'coin')
+        {
+            if (message.verdict == 'Buy')
+            {
+                log(message.Coin + "  " + message.verdict, 'green');
+            }
+           else {
+            log(message.Coin + "  " + message.verdict, 'red');
+                }
+       }
+        else
+        {
+          log2(message.portfolio);
+        }
+    
         
       });
     </script>
