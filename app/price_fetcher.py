@@ -9,6 +9,7 @@ def get_currency_price_data(timestamp: datetime, symbol: str) -> dict:
     :return: dictionary which includes open price, high price, low price, close price
              and volume for the given symbol and the last 24h period before the given timestamp.
     """
+
     url = "https://api.binance.com/api/v3/klines"
 
     params = {
