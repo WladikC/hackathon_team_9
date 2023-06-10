@@ -1,0 +1,27 @@
+// index.html
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>News Updates</title>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+  </head>
+  <body>
+    <h1>News Updates</h1>
+    <ul id="news-list"></ul>
+    
+    <script>
+      // Connect to the WebSocket server
+      var socket = io.connect();
+      
+      // Handle the 'news' event from the server
+      socket.on('news', function(data) {
+        var newsItem = document.createElement('li');
+        newsItem.innerText = data.news;
+        
+        var newsList = document.getElementById('news-list');
+        newsList.appendChild(newsItem);
+      });
+    </script>
+  </body>
+</html>
