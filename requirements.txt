@@ -4,3 +4,5 @@ aylien_news_api==5.2.3
 Flask-SocketIO
 simple-websocket
 gunicorn
+pandas==2.0.2
+

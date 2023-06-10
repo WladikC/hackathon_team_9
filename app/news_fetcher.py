@@ -3,18 +3,7 @@ import aylien_news_api
 from aylien_news_api.rest import ApiException
 import os
 
-PORTFOLIO = [
-    "Bitcoin",
-    "Ethereum",
-    "Dogecoin",
-    "Solana",
-    "Binance Coin",
-    "Cardano",
-    "Polygon",
-    "Litecoin",
-    "Uniswap",
-    "Avalanche",
-]
+from app.constants import PORTFOLIO
 
 
 def fetch_news(start_time: str, end_time: str) -> dict:
