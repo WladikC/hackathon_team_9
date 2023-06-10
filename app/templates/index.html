@@ -31,10 +31,10 @@
         {
             if (message.verdict == 'Buy')
             {
-                log(message.Coin + "  " + message.verdict, 'green');
+                log(message.Coin + "  " + message.verdict + " " + message.price + "  " + message.timestamp, 'green');
             }
            else {
-            log(message.Coin + "  " + message.verdict, 'red');
+            log(message.Coin + "  " + message.verdict + " " + message.price + "  " + message.timestamp, 'red');
                 }
        }
         else
