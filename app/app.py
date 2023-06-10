@@ -174,7 +174,7 @@ class AIPortfolioManager:
                 continue
 
             # Decide based on the response if to buy or sell a coin or do nothing.
-            buy_or_sell = self.make_buy_or_sell_decision(message=generated_response)
+            buy_or_sell = self.make_buy_or_sell_decision(message=generated_response, timestamp=news_feed_end_time)
             if buy_or_sell["verdict"] in ["Buy", "Sell"]:
                 buy_or_sell_list.append(buy_or_sell)
 
@@ -226,17 +226,17 @@ class AIPortfolioManager:
         self.portfolio_value = self.positions["Cash"] + coin_value
         print(f"Portfolio value: {self.portfolio_value}")
 
-    def make_buy_or_sell_decision(self, message: str):
+    def make_buy_or_sell_decision(self, message: str, timestamp: str):
         print("Make buy or sell decision.")
         message = json.loads(message)
         message = {key.lower(): value for key, value in message.items()}
 
         if "positive" in message["pos_neg"].lower():
-            buy_or_sell = {"verdict": "Buy", "Coin": self.coin, "type": "coin"}
+            buy_or_sell = {"verdict": "Buy", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
         elif "negative" in message["pos_neg"].lower():
-            buy_or_sell = {"verdict": "Sell", "Coin": self.coin, "type": "coin"}
+            buy_or_sell = {"verdict": "Sell", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
         else:
-            buy_or_sell = {"verdict": "Do nothing", "Coin": self.coin, "type": "coin"}
+            buy_or_sell = {"verdict": "Do nothing", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
 
         return buy_or_sell
 
