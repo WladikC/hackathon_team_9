@@ -151,7 +151,7 @@ class AIPortfolioManager:
 
             # Call the OpenAI API to generate a response
             response = openai.Completion.create(
-                engine="text-davinci-003", prompt=prompt, max_tokens=1000
+                engine="text-davinci-003", prompt=prompt, max_tokens=1000, temperature=0.2
             )
 
             # Get the generated response from the API
@@ -230,6 +230,9 @@ class AIPortfolioManager:
         print("Make buy or sell decision.")
         message = json.loads(message)
         message = {key.lower(): value for key, value in message.items()}
+
+        if message.get("pos_neg") is None:
+            return {"verdict": "Do nothing"}
 
         if "positive" in message["pos_neg"].lower():
             buy_or_sell = {"verdict": "Buy", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
@@ -329,8 +332,8 @@ def feed(ws):
 
         for msg in message:
             ws.send(msg)
-        portfolio = json.dumps({'type':"numb","portfolio":portfolio_value})
-        cash=json.dumps({'type':"numb","cash":outstanding_cash})
+        portfolio = json.dumps({'type': "numb", "portfolio": portfolio_value})
+        cash = json.dumps({'type': "numb", "cash": outstanding_cash})
         ws.send(cash)
         ws.send(portfolio)
         time.sleep(5)
