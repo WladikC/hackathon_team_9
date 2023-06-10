@@ -15,6 +15,8 @@ app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25}
 sock = Sock(app)
 openai.api_key = os.environ.get('OpenAPI_Key')
 
+MAXIMUM_PROMPT_LENGTH = 2000
+
 PORTFOLIO = [
     "Bitcoin",
     "Ethereum",
@@ -30,13 +32,12 @@ PORTFOLIO = [
 
 
 class ResponseGenerator:
-    def __init__(self, start_time: str, minute_interval: int):
-        self.start_time = start_time
-        self.minute_interval = minute_interval
+    def __init__(self):
         self.coin = ''
         self.news = ''
 
-    def fetch_news(self, start_time: str, end_time: str) -> dict:
+    @staticmethod
+    def fetch_news(start_time: str, end_time: str) -> dict:
         """
         :param start_time: start of time range of published news in format YYYY-mm-ddTHH:MM:SSZ
         :param end_time: end of time range of published news in format YYYY-mm-ddTHH:MM:SSZ
@@ -102,6 +103,9 @@ class ResponseGenerator:
             if self.news == '':
                 continue
 
+            if len(self.news) > MAXIMUM_PROMPT_LENGTH:
+                self.news = self.news[:MAXIMUM_PROMPT_LENGTH]
+
             prompt = generate_prompt(news=self.news, coin=self.coin)
             # Call the OpenAI API to generate a response
             response = openai.Completion.create(
@@ -133,11 +137,11 @@ class ResponseGenerator:
         message = {key.lower(): value for key, value in message.items()}
 
         if 'positive' in message["pos_neg"].lower():
-            buy_or_sell = json.dumps({"verdict": "Buy", "Coin": self.coin}) #"type": "coin"}]
+            buy_or_sell = json.dumps({"verdict": "Buy", "Coin": self.coin, "type": "coin"}) #"type": "coin"}]
         elif 'negative' in message["pos_neg"].lower():
-            buy_or_sell = json.dumps({"verdict": "Sell", "Coin": self.coin}) #"type": "coin"}]
+            buy_or_sell = json.dumps({"verdict": "Sell", "Coin": self.coin, "type": "coin"}) #"type": "coin"}]
         else:
-            buy_or_sell = json.dumps({"verdict": "Do nothing", "Coin": self.coin}) #"type": "coin"}]
+            buy_or_sell = json.dumps({"verdict": "Do nothing", "Coin": self.coin, "type": "coin"}) #"type": "coin"}]
 
         return buy_or_sell
 
@@ -162,10 +166,12 @@ def index():
 def feed(ws):
     start_time = os.getenv("START_TIME")
     minute_interval = int(os.getenv("MINUTE_INTERVAL"))
-    response_generator = ResponseGenerator(start_time=start_time, minute_interval=minute_interval)
+
+    response_generator = ResponseGenerator()
 
     news_feed_start_time = datetime.strptime(start_time, "%Y-%m-%d") - timedelta(minutes=minute_interval)
     news_feed_end_time = datetime.strptime(start_time, "%Y-%m-%d")
+
     while True:
         news_feed_start_time, news_feed_end_time = get_new_time_range(news_feed_start_time=news_feed_start_time, news_feed_end_time=news_feed_end_time, minute_interval=minute_interval)
 
@@ -175,10 +181,11 @@ def feed(ws):
         news_feed_end_time = datetime.strptime(news_feed_end_time, "%Y-%m-%dT%H:%M:%SZ")
 
         #message,porfoliovalue,outstandingcash = response_generator.generate_response() ## [{"verdict":"Buy","Coin":"BTC"},{"verdict":"Sell","Coin":"ETH"}],PortFolio Current Value, Outstanding Cash
-        #message = [buytest, selltest]
         for msg in message:
-            ws.send(msg)
+            if "Buy" in msg or "Sell" in msg:
+                ws.send(msg)
         time.sleep(5)
+
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8000)
