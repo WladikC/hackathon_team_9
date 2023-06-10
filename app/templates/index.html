@@ -1,26 +1,23 @@
-// index.html
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
-    <title>News Updates</title>
-    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+    <title>PortFolioperformance</title>
   </head>
   <body>
-    <h1>News Updates</h1>
-    <ul id="news-list"></ul>
-    
+    <h1>Coins</h1>
+    <div id="log"></div>
+    <br>
     <script>
-      // Connect to the WebSocket server
-      var socket = io.connect();
-      
-      // Handle the 'news' event from the server
-      socket.on('news', function(data) {
-        var newsItem = document.createElement('li');
-        newsItem.innerText = data.news;
+      const log = (text, color) => {
+        document.getElementById('log').innerHTML += `<span style="color: ${color}">${text}</span><br>`;
+      };
+
+      const socket = new WebSocket('ws://' + location.host + '/feed ');
+      socket.addEventListener('message', ev => {
+        message = JSON.parse(ev.data)
+        if (message.verdict == 'Buy'){log(message.Coin + "  " + message.verdict, 'green');}
+        else {log(message.Coin + "  " + message.verdict, 'red');}
         
-        var newsList = document.getElementById('news-list');
-        newsList.appendChild(newsItem);
       });
     </script>
   </body>

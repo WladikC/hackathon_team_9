@@ -1,5 +1,5 @@
 from flask import Flask, render_template
-from flask_socketio import SocketIO,emit
+from flask_sock import Sock
 from ret_prompt import generate_prompt
 from news_fetcher import fetch_news
 from threading import Thread
@@ -9,11 +9,9 @@ import json
 import time
 
 app = Flask(__name__)
-
-# Set up OpenAI API credentials
+app.config['SOCK_SERVER_OPTIONS'] = {'ping_interval': 25}
+sock = Sock(app)
 openai.api_key = os.environ.get('OpenAPI_Key')
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode='threading')
 
 def generate_response():
     inp2= fetch_news()
@@ -27,35 +25,23 @@ def generate_response():
 
     # Get the generated response from the API
     generated_response = response.choices[0].text.strip()
-    print(response)
-    return generated_response
+    list_of_buys_and_sells = parse_response(generated_response) #define this function
+    Porfolio_value, Outstanding_Cash = execute_transactions(list_of_buys_and_sells) #define this
+    return list_of_buys_and_sells,Porfolio_value,Outstanding_Cash
 # Route for the index page
 @app.route('/')
 def index():
     return render_template('index.html')
 
-# WebSocket event handler for client connection
-@socketio.on(message='connect')
-def on_connect():
-    print('Client connected')
-    
-# WebSocket event handler for client disconnection
-@socketio.on(message='disconnect')
-def on_disconnect():
-    print('Client disconnected')
-
-def fetch_news_dummy():
+@sock.route('/feed')
+def feed(ws):
+    buytest = json.dumps({"verdict":"Buy","Coin":"BTC"})
+    selltest = json.dumps({"verdict":"Sell","Coin":"ETH"})
     while True:
-        # Simulate fetching news
-        news = "This is some news fetched from the server"
-        
-        # Emit the news through WebSockets
-        emit('news', {'news': news})
-        time.sleep(5)
-# Start the fetch_news function in a separate thread
-def background_thread():
-    fetch_news_dummy()
+        message,porfoliovalue,outstandingcash = generate_response() ## [{"verdict":"Buy","Coin":"BTC"},{"verdict":"Sell","Coin":"ETH"}],PortFolio Current Value, Outstanding Cash
+        for msg in message:
+            ws.send(msg)
+        time.sleep(10)
 
 if __name__ == "__main__":
-    socketio.start_background_task(background_thread)
-    socketio.run(app,port=8000)
+    app.run(host='0.0.0.0', port=8000)

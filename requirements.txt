@@ -1,8 +1,7 @@
 Flask==2.0.1
 openai==0.27.8
 aylien_news_api==5.2.3
-Flask-SocketIO
-simple-websocket
+flask-sock
 gunicorn
 pandas==2.0.2
 
