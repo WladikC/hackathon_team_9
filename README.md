@@ -4,7 +4,9 @@ in the crypto space, based on news articles and basic financial data. It is impo
 that it doesn't do actual trades, but rather simulates trades based on the decisions
 and tracks the performance of the portfolio on a simple frontend page.
 
-Note: The strategy 
+Note: The strategy has much potential for improvement. This tool provides the architecture to implement 
+other strategies as well as prompts, and test them.
+
 ## API's used
 * Aylien News API: to fetch news articles
 * Binance API: to get basic financial data about coins
