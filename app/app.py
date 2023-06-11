@@ -214,26 +214,26 @@ class AIPortfolioManager:
             if buy_sell == "Sell":
                 if self.positions[coin] > 0:
                     sell_price = self.prices[coin] * (
-                        1 - (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
+                        1 - BID_ASK_SPREAD_BIPS / 2 / 10000
                     )
 
                     sell_portion = SELL_SMALL_PERCENTAGE/100 if impact == "small" else SELL_BIG_PERCENTAGE/100
                     self.positions["Cash"] += round(
-                        sell_portion * self.positions[coin] * sell_price, 2
+                        sell_portion * self.positions[coin] * (1 - TRADING_FEES_BIPS) * sell_price, 2
                     )
                     self.positions[coin] -= self.positions[coin] * sell_portion
 
             elif buy_sell == "Buy":
                 buy_price = self.prices[coin] * (
-                    1 + (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
+                    1 + BID_ASK_SPREAD_BIPS / 2 / 10000
                 )
 
                 buy_portion = BUY_SMALL_PERCENTAGE/100 if impact == "small" else BUY_BIG_PERCENTAGE/100
                 self.positions["Cash"] -= round(
-                    buy_portion / 100 * self.positions["Cash"], 2
+                    buy_portion * self.positions["Cash"] * (1 + TRADING_FEES_BIPS), 2
                 )
                 self.positions[coin] += round(
-                    buy_portion / 100 * self.positions["Cash"] / buy_price, 5
+                    buy_portion * self.positions["Cash"] / buy_price, 5
                 )
 
     def calculate_portfolio_value(self):
