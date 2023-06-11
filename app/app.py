@@ -21,6 +21,7 @@ START_CAPITAL = int(os.getenv("START_CAPITAL"))
 BUY_BIG_PERCENTAGE = int(os.getenv("BUY_BIG_PERCENTAGE"))
 BUY_SMALL_PERCENTAGE = int(os.getenv("BUY_SMALL_PERCENTAGE"))
 SELL_SMALL_PERCENTAGE = int(os.getenv("SELL_SMALL_PERCENTAGE"))
+SELL_BIG_PERCENTAGE = int(os.getenv("SELL_BIG_PERCENTAGE"))
 TRADING_FEES_BIPS = int(os.getenv("TRADING_FEES_BIPS"))
 BID_ASK_SPREAD_BIPS = int(os.getenv("BID_ASK_SPREAD_BIPS"))
 BUY_ON_BAD_NEWS = os.getenv("BUY_ON_BAD_NEWS")
@@ -55,6 +56,7 @@ class AIPortfolioManager:
         :param end_time: end of time range of published news in format YYYY-mm-ddTHH:MM:SSZ
         :return: news article summaries with publish times grouped by coins.
         """
+
         configuration = aylien_news_api.Configuration()
         configuration.api_key["X-AYLIEN-NewsAPI-Application-ID"] = os.getenv(
             "AylienAPI_ID"
@@ -207,26 +209,31 @@ class AIPortfolioManager:
         for signals in buy_or_sell_list:
             buy_sell = signals["verdict"]
             coin = signals["Coin"]
+            impact = signals["impact"]
 
             if buy_sell == "Sell":
                 if self.positions[coin] > 0:
                     sell_price = self.prices[coin] * (
                         1 - (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
                     )
+
+                    sell_portion = SELL_SMALL_PERCENTAGE/100 if impact == "small" else SELL_BIG_PERCENTAGE/100
                     self.positions["Cash"] += round(
-                        self.positions[coin] * sell_price, 2
+                        sell_portion * self.positions[coin] * sell_price, 2
                     )
-                    self.positions[coin] = 0
+                    self.positions[coin] -= self.positions[coin] * sell_portion
 
             elif buy_sell == "Buy":
                 buy_price = self.prices[coin] * (
                     1 + (TRADING_FEES_BIPS + BID_ASK_SPREAD_BIPS / 2) / 10000
                 )
+
+                buy_portion = BUY_SMALL_PERCENTAGE/100 if impact == "small" else BUY_BIG_PERCENTAGE/100
                 self.positions["Cash"] -= round(
-                    BUY_SMALL_PERCENTAGE / 100 * self.positions["Cash"], 2
+                    buy_portion / 100 * self.positions["Cash"], 2
                 )
                 self.positions[coin] += round(
-                    BUY_SMALL_PERCENTAGE / 100 * self.positions["Cash"] / buy_price, 5
+                    buy_portion / 100 * self.positions["Cash"] / buy_price, 5
                 )
 
     def calculate_portfolio_value(self):
@@ -244,6 +251,8 @@ class AIPortfolioManager:
 
         if message.get("pos_neg") is None:
             return {"verdict": "Do nothing"}
+        if message.get("impact") is None:
+            return {"verdict": "Do nothing"}
 
         if "positive" in message["pos_neg"].lower():
             buy_or_sell = {
@@ -252,6 +261,7 @@ class AIPortfolioManager:
                 "type": "coin",
                 "timestamp": timestamp,
                 "price": self.prices[self.coin],
+                "impact": "small" if "small" in message["impact"].lower() else "big",
             }
         elif "negative" in message["pos_neg"].lower():
             buy_or_sell = {
@@ -260,6 +270,7 @@ class AIPortfolioManager:
                 "type": "coin",
                 "timestamp": timestamp,
                 "price": self.prices[self.coin],
+                "impact": "small" if "small" in message["impact"].lower() else "big",
             }
         else:
             buy_or_sell = {
@@ -268,6 +279,7 @@ class AIPortfolioManager:
                 "type": "coin",
                 "timestamp": timestamp,
                 "price": self.prices[self.coin],
+                "impact": "small" if "small" in message["impact"].lower() else "big",
             }
 
         return buy_or_sell
