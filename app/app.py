@@ -16,13 +16,14 @@ app.config["SOCK_SERVER_OPTIONS"] = {"ping_interval": 25}
 sock = Sock(app)
 openai.api_key = os.environ.get("OpenAPI_Key")
 
-MAXIMUM_PROMPT_LENGTH = 2000
-START_CAPITAL = 100000
-BUY_BIG_PERCENTAGE = 10
-BUY_SMALL_PERCENTAGE = 5
-SELL_SMALL_PERCENTAGE = 20
-TRADING_FEES_BIPS = 10
-BID_ASK_SPREAD_BIPS = 10
+MAXIMUM_PROMPT_LENGTH = int(os.getenv("MAXIMUM_PROMPT_LENGTH"))
+START_CAPITAL = int(os.getenv("START_CAPITAL"))
+BUY_BIG_PERCENTAGE = int(os.getenv("BUY_BIG_PERCENTAGE"))
+BUY_SMALL_PERCENTAGE = int(os.getenv("BUY_SMALL_PERCENTAGE"))
+SELL_SMALL_PERCENTAGE = int(os.getenv("SELL_SMALL_PERCENTAGE"))
+TRADING_FEES_BIPS = int(os.getenv("TRADING_FEES_BIPS"))
+BID_ASK_SPREAD_BIPS = int(os.getenv("BID_ASK_SPREAD_BIPS"))
+BUY_ON_BAD_NEWS = os.getenv("BUY_ON_BAD_NEWS")
 
 PORTFOLIO = {
     "Bitcoin": "BTCUSDT",
@@ -147,11 +148,16 @@ class AIPortfolioManager:
             if len(self.news) > MAXIMUM_PROMPT_LENGTH:
                 self.news = self.news[:MAXIMUM_PROMPT_LENGTH]
 
-            prompt = generate_prompt(news=self.news, coin=self.coin, price_data=price_data)
+            prompt = generate_prompt(
+                news=self.news, coin=self.coin, price_data=price_data
+            )
 
             # Call the OpenAI API to generate a response
             response = openai.Completion.create(
-                engine="text-davinci-003", prompt=prompt, max_tokens=1000, temperature=0.2
+                engine="text-davinci-003",
+                prompt=prompt,
+                max_tokens=1000,
+                temperature=0.2,
             )
 
             # Get the generated response from the API
@@ -174,8 +180,13 @@ class AIPortfolioManager:
                 continue
 
             # Decide based on the response if to buy or sell a coin or do nothing.
-            buy_or_sell = self.make_buy_or_sell_decision(message=generated_response, timestamp=news_feed_end_time)
-            if buy_or_sell["verdict"] in ["Buy", "Sell"]:
+            buy_or_sell = self.make_buy_or_sell_decision(
+                message=generated_response, timestamp=news_feed_end_time
+            )
+
+            if buy_or_sell["verdict"] == "Buy":
+                buy_or_sell_list.append(buy_or_sell)
+            elif buy_or_sell["verdict"] == "Sell" and self.positions[self.coin] > 0:
                 buy_or_sell_list.append(buy_or_sell)
 
         # In order to do the sells first.
@@ -223,7 +234,7 @@ class AIPortfolioManager:
         for coin in PORTFOLIO.keys():
             coin_value += self.positions[coin] * self.prices[coin]
 
-        self.portfolio_value = self.positions["Cash"] + coin_value
+        self.portfolio_value = round(self.positions["Cash"] + coin_value, 2)
         print(f"Portfolio value: {self.portfolio_value}")
 
     def make_buy_or_sell_decision(self, message: str, timestamp: str):
@@ -235,11 +246,29 @@ class AIPortfolioManager:
             return {"verdict": "Do nothing"}
 
         if "positive" in message["pos_neg"].lower():
-            buy_or_sell = {"verdict": "Buy", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
+            buy_or_sell = {
+                "verdict": "Sell" if BUY_ON_BAD_NEWS == "true" else "Buy",
+                "Coin": self.coin,
+                "type": "coin",
+                "timestamp": timestamp,
+                "price": self.prices[self.coin],
+            }
         elif "negative" in message["pos_neg"].lower():
-            buy_or_sell = {"verdict": "Sell", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
+            buy_or_sell = {
+                "verdict": "Buy" if BUY_ON_BAD_NEWS == "true" else "Sell",
+                "Coin": self.coin,
+                "type": "coin",
+                "timestamp": timestamp,
+                "price": self.prices[self.coin],
+            }
         else:
-            buy_or_sell = {"verdict": "Do nothing", "Coin": self.coin, "type": "coin", "timestamp": timestamp, "price": self.prices[self.coin]}
+            buy_or_sell = {
+                "verdict": "Do nothing",
+                "Coin": self.coin,
+                "type": "coin",
+                "timestamp": timestamp,
+                "price": self.prices[self.coin],
+            }
 
         return buy_or_sell
 
@@ -332,8 +361,8 @@ def feed(ws):
 
         for msg in message:
             ws.send(msg)
-        portfolio = json.dumps({'type': "numb", "portfolio": portfolio_value})
-        cash = json.dumps({'type': "numb", "cash": outstanding_cash})
+        portfolio = json.dumps({"type": "numb", "portfolio": portfolio_value})
+        cash = json.dumps({"type": "numb", "cash": outstanding_cash})
         ws.send(cash)
         ws.send(portfolio)
         time.sleep(5)

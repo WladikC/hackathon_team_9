@@ -23,6 +23,8 @@ SELL_SMALL_PERCENTAGE = 20 # Percentage of positions to be sold for small impact
 SELL_BIG_PERCENTAGE = 100 # Percentage of positions to be sold for big impact  negative news
 TRADING_FEES_BIPS = 10 
 BID_ASK_SPREAD_BIPS = 10 
+
+BUY_ON_BAD_NEWS=false # when set to true, it will do the opposite of what the LLM suggests
 ```
 
 Docker image can be built using command

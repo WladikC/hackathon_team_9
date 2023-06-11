@@ -4,7 +4,7 @@
     <title>PortFolioperformance</title>
   </head>
   <body>
-    <h2>orders</h2>
+    <h2>Trades</h2>
     <div id="log"></div>
     <br>
     <div id="portfolioperformance" style="float: right; width: 200px; height: 100px;" ></div>
@@ -16,11 +16,13 @@
         document.getElementById('log').innerHTML += `<span style="color: ${color}">${text}</span><br>`;
       };
       const log2 = (text) => {
-        document.getElementById('portfolioperformance').innerHTML = `<span style="color: blue">${text}</span><br>`;
+        const outputText = "Portfolio value: " + text;
+        document.getElementById('portfolioperformance').innerHTML = `<span style="color: blue">${outputText}</span><br>`;
       };
 
       const log3 = (text) => {
-        document.getElementById('outstandingcash').innerHTML = `<span style="color: blue">${text}</span><br>`;
+        const outputText = "Outstanding Cash: " + text;
+        document.getElementById('outstandingcash').innerHTML = `<span style="color: blue">${outputText}</span><br>`;
       };
 
 
